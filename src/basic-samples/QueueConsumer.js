@@ -25,12 +25,13 @@
 
 /*jslint es6 node:true devel:true*/
 
-var QueueConsumer = function (solaceModule, queueName) {
+var QueueConsumer = function (solaceModule, queueName, topicName) {
     'use strict';
     var solace = solaceModule;
     var consumer = {};
     consumer.session = null;
     consumer.queueName = queueName;
+    consumer.topic = solace.SolclientFactory.createTopicDestination(topicName);
     consumer.consuming = false;
 
     // Logger
@@ -147,6 +148,15 @@ var QueueConsumer = function (solaceModule, queueName) {
                         // Need to explicitly ack otherwise it will not be deleted from the message router
                         message.acknowledge();
                     });
+                    consumer.messageConsumer.on(solace.MessageConsumerEventName.SUBSCRIPTION_OK, function (event) {
+                        consumer.log('=== The queue is now subscribed to the topic.  ===');
+                    });
+                    consumer.messageConsumer.on(solace.MessageConsumerEventName.SUBSCRIPTION_ERROR, function (event) {
+                        consumer.log('=== The queue subscription failed:  ===');
+                        consumer.log(event);
+                    });
+                    // Subscribe the queue to the topic
+                    consumer.messageConsumer.addSubscription(consumer.topic);
                     // Connect the message consumer
                     consumer.messageConsumer.connect();
                 } catch (error) {
@@ -216,7 +226,7 @@ solace.SolclientFactory.init(factoryProps);
 solace.SolclientFactory.setLogLevel(solace.LogLevel.WARN);
 
 // create the consumer, specifying the name of the queue
-var consumer = new QueueConsumer(solace, 'tutorial/queue');
+var consumer = new QueueConsumer(solace, 'tutorial/queue', 'tutorial/topic');
 
 // subscribe to messages on Solace message router
 consumer.run(process.argv);
